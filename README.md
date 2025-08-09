@@ -1,4 +1,4 @@
-🛡️ Private EKS Cluster with Terraform — README
+🛡️ Private EKS Cluster with Terraform — README.md
 
 
 This project provisions a private Amazon EKS (Elastic Kubernetes Service) cluster using Terraform. The setup includes:
