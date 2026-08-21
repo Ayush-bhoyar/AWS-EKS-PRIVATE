@@ -30,13 +30,16 @@ expected_environment := "prod"
 
 # ---- Helpers ----
 
+any_action_is_delete(actions) {
+	actions[_] == "delete"
+}
+
 is_being_created_or_updated(rc) {
 	actions := rc.change.actions
         not any_action_is_delete(actions)
 	count(actions) > 0
 	actions[_] != "no-op"
 }
-
 # ---- Rule: EKS node group instance types must be from the allowed list ----
 
 deny[msg] {
