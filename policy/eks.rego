@@ -32,7 +32,7 @@ expected_environment := "prod"
 
 is_being_created_or_updated(rc) {
 	actions := rc.change.actions
-	not actions[_] == "delete"
+        not any_action_is_delete(actions)
 	count(actions) > 0
 	actions[_] != "no-op"
 }
