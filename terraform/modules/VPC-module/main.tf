@@ -26,7 +26,7 @@ resource "aws_subnet" "private_subnet" {
   tags = {
     Name =  "Private-subnet-${count.index}" 
     Environment = "Production"
-    Owner = Ayush
+    Owner = "Ayush"
     Project = "Eks-terraform"
           }
 }
@@ -41,7 +41,7 @@ resource "aws_subnet" "public_subnet" {
   tags = {
     Name =  "Public-subnet-${count.index}"
     Environment = "Production"
-    Owner = Ayush
+    Owner = "Ayush"
     Project = "Eks-terraform"
 
 
@@ -56,7 +56,7 @@ resource "aws_internet_gateway" "IGW" {
 tags = {
   Name= "Internet-gw"
 Environment = "Production"
-    Owner = Ayush
+    Owner = "Ayush"
     Project = "Eks-terraform"
 
 }
@@ -74,7 +74,7 @@ resource "aws_nat_gateway" "NAT-GW" {
   tags={
     Name= "NAT-GW-${count.index}"
     Environment = "Production"
-    Owner = Ayush
+    Owner = "Ayush"
     Project = "Eks-terraform"
 
 
@@ -178,7 +178,7 @@ resource "aws_instance" "bastion" {
   tags = {
     Name        = "bastion-host"
     Environment = "Production"
-    Owner = Ayush
+    Owner = "Ayush"
     Project = "Eks-terraform"
 
   }
