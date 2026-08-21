@@ -1,0 +1,146 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write   # needed for AWS OIDC auth
+
+env:
+  TF_VERSION: "1.9.5"
+  TF_WORKING_DIR: terraform
+  AWS_REGION: us-east-1
+  CONFTEST_VERSION: "0.55.0"
+
+jobs:
+  plan:
+    name: fmt / validate / policy / plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform fmt check
+        id: fmt
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        id: init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+        continue-on-error: true
+
+      - name: Terraform validate
+        id: validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate -no-color
+        continue-on-error: true
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        id: tflint
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          tflint --init
+          tflint -f compact
+        continue-on-error: true
+
+      - name: Terraform plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan -input=false -no-color -out=tfplan.binary
+          terraform show -json tfplan.binary > tfplan.json
+        continue-on-error: true
+
+      - name: Install Conftest
+        run: |
+          curl -sL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" | tar xz
+          sudo mv conftest /usr/local/bin/conftest
+
+      - name: Run policy checks (Conftest / OPA)
+        id: policy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: conftest test tfplan.json --policy ../policy -o table
+        continue-on-error: true
+
+      # Save the exact plan binary so `apply` later applies THIS reviewed plan,
+      # not a fresh re-plan (avoids drift between review and approval).
+      - name: Upload plan artifact
+        if: steps.plan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.pull_request.number }}
+          path: |
+            ${{ env.TF_WORKING_DIR }}/tfplan.binary
+            ${{ env.TF_WORKING_DIR }}/tfplan.json
+          retention-days: 5
+
+      - name: Post summary comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const outcome = (s) => s === 'success' ? '✅' : (s === 'skipped' ? '⏭️' : '❌');
+            const fmt      = "${{ steps.fmt.outcome }}";
+            const init     = "${{ steps.init.outcome }}";
+            const validate = "${{ steps.validate.outcome }}";
+            const tflint   = "${{ steps.tflint.outcome }}";
+            const plan     = "${{ steps.plan.outcome }}";
+            const policy   = "${{ steps.policy.outcome }}";
+
+            const body = `### Terraform Plan Results
+
+            | Check | Result |
+            |---|---|
+            | fmt | ${outcome(fmt)} |
+            | init | ${outcome(init)} |
+            | validate | ${outcome(validate)} |
+            | tflint | ${outcome(tflint)} |
+            | plan | ${outcome(plan)} |
+            | policy (conftest) | ${outcome(policy)} |
+
+            ${plan === 'success' ? 'Plan generated successfully. See the **plan** job logs for full output.' : 'Plan failed or was skipped — check logs.'}
+
+            ${policy === 'failure' ? '⚠️ **Policy check failed.** Review the conftest output in the job logs before requesting approval.' : ''}
+
+            ---
+            To apply after review and approval, comment: \`/terraform-apply\`
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail job if any check failed
+        if: |
+          steps.fmt.outcome == 'failure' ||
+          steps.init.outcome == 'failure' ||
+          steps.validate.outcome == 'failure' ||
+          steps.plan.outcome == 'failure' ||
+          steps.policy.outcome == 'failure'
+        run: exit 1
