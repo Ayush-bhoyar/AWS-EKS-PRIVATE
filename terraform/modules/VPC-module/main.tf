@@ -24,7 +24,11 @@ resource "aws_subnet" "private_subnet" {
   map_public_ip_on_launch = false
 
   tags = {
-    Name =  "Private-subnet-${count.index}"  }
+    Name =  "Private-subnet-${count.index}" 
+    Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
+          }
 }
 
 resource "aws_subnet" "public_subnet" {
@@ -35,7 +39,14 @@ resource "aws_subnet" "public_subnet" {
   availability_zone = data.aws_availability_zones.available.names[count.index % length(data.aws_availability_zones.available.names)]
 
   tags = {
-    Name =  "Public-subnet-${count.index}"  }
+    Name =  "Public-subnet-${count.index}"
+    Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
+
+
+
+}
   
 }
 
@@ -44,6 +55,10 @@ resource "aws_internet_gateway" "IGW" {
 
 tags = {
   Name= "Internet-gw"
+Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
+
 }
 }
 
@@ -58,6 +73,10 @@ resource "aws_nat_gateway" "NAT-GW" {
   subnet_id = aws_subnet.public_subnet[count.index].id
   tags={
     Name= "NAT-GW-${count.index}"
+    Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
+
 
   }
 }
@@ -159,5 +178,8 @@ resource "aws_instance" "bastion" {
   tags = {
     Name        = "bastion-host"
     Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
+
   }
 }

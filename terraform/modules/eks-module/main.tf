@@ -34,6 +34,8 @@ resource "aws_eks_cluster" "EKS" {
   tags = {
     Name        = var.cluster_name
     Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
   }
 }
 
@@ -50,6 +52,10 @@ resource "aws_iam_openid_connect_provider" "eks_oidc" {
 
   tags = {
     Name = "${var.cluster_name}-oidc"
+    Environment = "Production"
+    Owner = Ayush
+    Project = "Eks-terraform"
+
   }
 }
 
@@ -87,6 +93,10 @@ resource "aws_eks_node_group" "eks_node_group" {
   tags = {
     Name        = "${var.cluster_name}-node-group"
     Environment = "Production"
+    
+    Owner = Ayush
+    Project = "Eks-terraform"
+
   }
 
   depends_on = [aws_eks_cluster.EKS]
